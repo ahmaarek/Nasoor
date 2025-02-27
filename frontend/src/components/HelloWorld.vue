@@ -1,130 +1,162 @@
-<template>
-  <div class="hello">
-    <h1>{{ msg }}</h1>
-    <p>
-      For a guide and recipes on how to configure / customize this project,<br />
-      check out the
-      <a href="https://cli.vuejs.org" target="_blank" rel="noopener"
-        >vue-cli documentation</a
-      >.
-    </p>
-    <h3>Installed CLI Plugins</h3>
-    <ul>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-babel"
-          target="_blank"
-          rel="noopener"
-          >babel</a
-        >
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-router"
-          target="_blank"
-          rel="noopener"
-          >router</a
-        >
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-vuex"
-          target="_blank"
-          rel="noopener"
-          >vuex</a
-        >
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-eslint"
-          target="_blank"
-          rel="noopener"
-          >eslint</a
-        >
-      </li>
-    </ul>
-    <h3>Essential Links</h3>
-    <ul>
-      <li>
-        <a href="https://vuejs.org" target="_blank" rel="noopener">Core Docs</a>
-      </li>
-      <li>
-        <a href="https://forum.vuejs.org" target="_blank" rel="noopener"
-          >Forum</a
-        >
-      </li>
-      <li>
-        <a href="https://chat.vuejs.org" target="_blank" rel="noopener"
-          >Community Chat</a
-        >
-      </li>
-      <li>
-        <a href="https://twitter.com/vuejs" target="_blank" rel="noopener"
-          >Twitter</a
-        >
-      </li>
-      <li>
-        <a href="https://news.vuejs.org" target="_blank" rel="noopener">News</a>
-      </li>
-    </ul>
-    <h3>Ecosystem</h3>
-    <ul>
-      <li>
-        <a href="https://router.vuejs.org" target="_blank" rel="noopener"
-          >vue-router</a
-        >
-      </li>
-      <li>
-        <a href="https://vuex.vuejs.org" target="_blank" rel="noopener">vuex</a>
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-devtools#vue-devtools"
-          target="_blank"
-          rel="noopener"
-          >vue-devtools</a
-        >
-      </li>
-      <li>
-        <a href="https://vue-loader.vuejs.org" target="_blank" rel="noopener"
-          >vue-loader</a
-        >
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/awesome-vue"
-          target="_blank"
-          rel="noopener"
-          >awesome-vue</a
-        >
-      </li>
-    </ul>
-  </div>
-</template>
-
 <script>
 export default {
-  name: "HelloWorld",
-  props: {
-    msg: String,
+  data() {
+    return {
+      hourlyRate: 0,
+      users: [],
+    };
+  },
+  methods: {
+    addUser() {
+      this.users.push({ name: "", arrival: "", leaving: "", amountOwed: 0 });
+    },
+    removeUser(index) {
+      this.users.splice(index, 1);
+      this.calculateAmount();
+    },
+    calculateAmount() {
+      const totalMinutes = 24 * 60; // Total minutes in a day
+      let timeBlocks = {}; // Tracks how many people are present per time block
+      let userAmounts = {}; // Stores each user's total owed amount
+
+      this.users.forEach((user) => {
+        let arrival = this.timeToMinutes(user.arrival);
+        let leaving = this.timeToMinutes(user.leaving);
+
+        // Handle cases where leaving time is past midnight
+        if (leaving < arrival) {
+          leaving += totalMinutes; // Treat the next day's time as continuous
+        }
+
+        // Round arrival and leaving to nearest 15-minute block
+        arrival = Math.round(arrival / 15) * 15;
+        leaving = Math.round(leaving / 15) * 15;
+
+        // Track presence in 15-minute blocks
+        for (let t = arrival; t < leaving; t += 15) {
+          if (!timeBlocks[t]) timeBlocks[t] = 0;
+          timeBlocks[t] += 1;
+        }
+
+        // Initialize user's amount owed
+        userAmounts[user.name] = 0;
+      });
+
+      // Calculate cost per 15-minute block
+      const costPerBlock = this.hourlyRate / 4; // Since 1 hour = 4 x 15-minute blocks
+
+      Object.keys(timeBlocks).forEach((block) => {
+        let numPeople = timeBlocks[block];
+
+        this.users.forEach((user) => {
+          let arrival = this.timeToMinutes(user.arrival);
+          let leaving = this.timeToMinutes(user.leaving);
+
+          if (leaving < arrival) leaving += totalMinutes; // Handle past-midnight stays
+
+          arrival = Math.round(arrival / 15) * 15;
+          leaving = Math.round(leaving / 15) * 15;
+
+          if (block >= arrival && block < leaving) {
+            userAmounts[user.name] += costPerBlock / numPeople;
+          }
+        });
+      });
+
+      // Assign calculated amounts to each user
+      this.users.forEach((user) => {
+        user.amountOwed = userAmounts[user.name];
+      });
+    },
+
+    timeToMinutes(time) {
+      let [hours, minutes] = time.split(/[: ]/);
+      const period = time.includes("PM") ? "PM" : "AM";
+      hours = parseInt(hours, 10);
+      minutes = parseInt(minutes, 10);
+
+      return hours * 60 + minutes;
+    },
   },
 };
 </script>
 
-<!-- Add "scoped" attribute to limit CSS to this component only -->
+<template>
+  <div class="container">
+    <h1>NASOOR</h1>
+
+    <div class="input-group">
+      <label>Hourly Rate:</label>
+      <input type="number" v-model="hourlyRate" min="0" />
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Arrival Time</th>
+          <th>Leaving Time</th>
+          <th>Amount Owed</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(user, index) in users" :key="index">
+          <td>
+            <input type="text" v-model="user.name" placeholder="Enter name" />
+          </td>
+          <td>
+            <input
+              type="time"
+              v-model="user.arrival"
+              @input="calculateAmount(user)"
+            />
+          </td>
+          <td>
+            <input
+              type="time"
+              v-model="user.leaving"
+              @input="calculateAmount(user)"
+            />
+          </td>
+          <td>{{ user.amountOwed }}</td>
+          <td>
+            <button @click="removeUser(index)">❌</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <button @click="addUser">➕ Add User</button>
+  </div>
+</template>
+
 <style scoped>
-h3 {
-  margin: 40px 0 0;
+.container {
+  text-align: center;
+  max-width: 600px;
+  margin: auto;
 }
-ul {
-  list-style-type: none;
-  padding: 0;
+
+.input-group {
+  margin-bottom: 10px;
 }
-li {
-  display: inline-block;
-  margin: 0 10px;
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
 }
-a {
-  color: #42b983;
+
+th,
+td {
+  border: 1px solid black;
+  padding: 8px;
+}
+
+button {
+  margin-top: 10px;
+  padding: 5px 10px;
+  cursor: pointer;
 }
 </style>
