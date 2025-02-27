@@ -82,53 +82,60 @@ export default {
 </script>
 
 <template>
-  <div class="container">
-    <h1>NASOOR</h1>
 
-    <div class="input-group">
-      <label>Hourly Rate:</label>
-      <input type="number" v-model="hourlyRate" min="0" />
+  <body class="bg-black">
+
+    <div class="container">
+      <div class="h-120 flex items-center justify-center">
+        <img src="../assets/taffi.jpg" class="h-100 rounded-lg ">
+      </div>
+
+      <div class="flex items-center justify-center">
+        <h1 class="font-mono font-extrabold text-2xl text-blue-400">NASOOR</h1>
+      </div>
+      <div class="bg-blue-400 p-4 rounded-lg shadow-md w-64 mx-auto">
+        <label class="block text-sm font-mono font-medium text-black mb-1">Hourly Rate</label>
+        <input type="number" v-model="hourlyRate" min="0"
+          class="w-full border border-black rounded-md p-2 text-center focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500" />
+      </div>
+
+      <table class="text-white">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Arrival Time</th>
+            <th>Leaving Time</th>
+            <th>Amount Owed</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(user, index) in users" :key="index">
+            <td>
+              <input type="text" v-model="user.name" placeholder="Enter name" />
+            </td>
+            <td>
+              <input type="time" v-model="user.arrival" @input="calculateAmount(user)" />
+            </td>
+            <td>
+              <input type="time" v-model="user.leaving" @input="calculateAmount(user)" />
+            </td>
+            <td>{{ user.amountOwed }}</td>
+            <td>
+              <button @click="removeUser(index)">❌</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <button class="px-4 py-2 rounded-full border-2 border-blue-400 text-blue-400 
+         hover:bg-blue-900 hover:text-white hover:border-transparent 
+         active:bg-blue-700 transition-all duration-200 ease-in-out shadow-md" @click="addUser">
+        Add User
+      </button>
+
     </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Arrival Time</th>
-          <th>Leaving Time</th>
-          <th>Amount Owed</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="(user, index) in users" :key="index">
-          <td>
-            <input type="text" v-model="user.name" placeholder="Enter name" />
-          </td>
-          <td>
-            <input
-              type="time"
-              v-model="user.arrival"
-              @input="calculateAmount(user)"
-            />
-          </td>
-          <td>
-            <input
-              type="time"
-              v-model="user.leaving"
-              @input="calculateAmount(user)"
-            />
-          </td>
-          <td>{{ user.amountOwed }}</td>
-          <td>
-            <button @click="removeUser(index)">❌</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-
-    <button @click="addUser">➕ Add User</button>
-  </div>
+  </body>
 </template>
 
 <style scoped>
