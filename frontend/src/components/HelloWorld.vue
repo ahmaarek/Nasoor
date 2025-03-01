@@ -2,13 +2,83 @@
 export default {
   data() {
     return {
-      hourlyRate: 0,
+      hourlyRate: 100,
       users: [],
+      isSpinning: false,
     };
   },
   methods: {
     addUser() {
-      this.users.push({ name: "", arrival: "", leaving: "", amountOwed: 0 });
+  const now = new Date();
+  const hours = now.getHours().toString().padStart(2, "0");
+  const minutes = now.getMinutes().toString().padStart(2, "0");
+  const currentTime = `${hours}:${minutes}`;
+
+  this.users.push({ name: "", arrival: currentTime, leaving: currentTime, amountOwed: 0 });
+},
+    duplicateRow(index) {
+      const userToCopy = this.users[index]; // Get the selected user
+      let baseName = userToCopy.name;
+      let newName = baseName;
+      let copyCount = 1;
+
+      // Ensure the new name is unique by appending a number if needed
+      while (this.users.some(user => user.name === newName)) {
+        newName = `${baseName} ${copyCount}`;
+        copyCount++;
+      }
+
+      const newUser = {
+        name: newName, // Use the unique name
+        arrival: userToCopy.arrival,
+        leaving: userToCopy.leaving,
+        amountOwed: 0,
+      };
+
+      // Insert the new user into the list
+      this.users.splice(index + 1, 0, newUser);
+
+      // Recalculate everything
+      this.calculateAmount();
+    },
+    calculateTotalOwed() {
+      if (this.users.length === 0) return 0;
+
+      const totalMinutes = 24 * 60;
+      let earliestArrival = totalMinutes;
+      let latestLeaving = 0;
+
+      this.users.forEach(user => {
+        let arrival = this.timeToMinutes(user.arrival);
+        let leaving = this.timeToMinutes(user.leaving);
+
+        if (leaving < arrival) leaving += totalMinutes; // Handle past-midnight stays
+
+        // Round to the nearest 15 minutes
+        arrival = Math.round(arrival / 15) * 15;
+        leaving = Math.round(leaving / 15) * 15;
+
+        earliestArrival = Math.min(earliestArrival, arrival);
+        latestLeaving = Math.max(latestLeaving, leaving);
+      });
+
+      // Calculate the total minutes used
+      let totalUsedMinutes = latestLeaving - earliestArrival;
+      let totalBlocks = totalUsedMinutes / 15; // Number of 15-minute blocks
+
+      let totalOwed = (totalBlocks * this.hourlyRate) / 4; // Since 1 hour = 4 blocks
+      return totalOwed.toFixed(2);
+    },
+    setCurrentTime(user, field) {
+      const now = new Date();
+      const hours = now.getHours().toString().padStart(2, "0");
+      const minutes = now.getMinutes().toString().padStart(2, "0");
+      user[field] = `${hours}:${minutes}`;
+      this.calculateAmount(user);
+    },
+    spinImage() {
+      this.isSpinning = true;
+      setTimeout(() => this.isSpinning = false, 1000);
     },
     removeUser(index) {
       this.users.splice(index, 1);
@@ -19,32 +89,31 @@ export default {
       let timeBlocks = {}; // Tracks how many people are present per time block
       let userAmounts = {}; // Stores each user's total owed amount
 
+      // First loop: Track presence in each time block
       this.users.forEach((user) => {
         let arrival = this.timeToMinutes(user.arrival);
         let leaving = this.timeToMinutes(user.leaving);
 
-        // Handle cases where leaving time is past midnight
         if (leaving < arrival) {
-          leaving += totalMinutes; // Treat the next day's time as continuous
+          leaving += totalMinutes; // Handle past-midnight stays
         }
 
-        // Round arrival and leaving to nearest 15-minute block
+        // Round to the nearest 15-minute block
         arrival = Math.round(arrival / 15) * 15;
         leaving = Math.round(leaving / 15) * 15;
 
-        // Track presence in 15-minute blocks
         for (let t = arrival; t < leaving; t += 15) {
           if (!timeBlocks[t]) timeBlocks[t] = 0;
-          timeBlocks[t] += 1;
+          timeBlocks[t]++; // Count ALL users correctly
         }
 
-        // Initialize user's amount owed
-        userAmounts[user.name] = 0;
+        userAmounts[user.name] = 0; // Initialize user's owed amount
       });
 
       // Calculate cost per 15-minute block
-      const costPerBlock = this.hourlyRate / 4; // Since 1 hour = 4 x 15-minute blocks
+      const costPerBlock = (this.hourlyRate || 0) / 4;  // Since 1 hour = 4 x 15-minute blocks
 
+      // Second loop: Distribute cost fairly
       Object.keys(timeBlocks).forEach((block) => {
         let numPeople = timeBlocks[block];
 
@@ -52,22 +121,23 @@ export default {
           let arrival = this.timeToMinutes(user.arrival);
           let leaving = this.timeToMinutes(user.leaving);
 
-          if (leaving < arrival) leaving += totalMinutes; // Handle past-midnight stays
+          if (leaving < arrival) leaving += totalMinutes;
 
           arrival = Math.round(arrival / 15) * 15;
           leaving = Math.round(leaving / 15) * 15;
 
           if (block >= arrival && block < leaving) {
-            userAmounts[user.name] += costPerBlock / numPeople;
+            userAmounts[user.name] += costPerBlock / numPeople; // Divide cost correctly
           }
         });
       });
 
-      // Assign calculated amounts to each user
+      // Assign amounts owed back to users
       this.users.forEach((user) => {
         user.amountOwed = userAmounts[user.name];
       });
     },
+
 
     timeToMinutes(time) {
       let [hours, minutes] = time.split(/[: ]/);
@@ -77,65 +147,123 @@ export default {
 
       return hours * 60 + minutes;
     },
+    clearAll() {
+      this.users = []; // Remove all users
+    },
+
   },
 };
 </script>
 
 <template>
 
-  <body class="bg-black">
+  <!-- <body ></body>class="min-h-screen bg-gradient-to-b from-red-900 to-black flex flex-col items-center justify-center"> -->
 
-    <div class="container">
-      <div class="h-120 flex items-center justify-center">
-        <img src="../assets/taffi.jpg" class="h-100 rounded-lg ">
+  <div class="fixed top-0 left-0 w-full h-screen bg-gradient-to-b  from-red-900 to-black -z-10"></div>
+
+  <div class="absolute top-1/4 left-1/3 w-72 h-72 bg-black opacity-30 blur-3xl animate-moveLight"></div>
+  <div class="absolute top-1/2 left-2/3 w-96 h-96 bg-black opacity-30 blur-3xl animate-moveLight"></div>
+  <div class="container">
+    <div class="h-120 flex items-center justify-center">
+      <img src="../assets/taffi.png" class="h-100 rounded-lg cursor-pointer transition-transform duration-500"
+        :class="{ 'rotate-360 ': isSpinning }" @click="spinImage">
+    </div>
+
+    <div class="flex items-center justify-center">
+      <h1 class="font-mono font-extrabold text-2xl text-white">NASOOR</h1>
+    </div>
+    <div class="flex flex-col items-center gap-4 relative">
+      <!-- Hourly Rate Input -->
+      <div class="bg-red-900 p-4 rounded-lg shadow-md w-64 text-center">
+        <label class="block text-sm font-mono font-medium text-white mb-1">
+          Hourly Rate
+        </label>
+        <input type="number" v-model="hourlyRate" min="0" class="w-full border text-white border-white rounded-md p-2 text-center 
+             focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-500" />
       </div>
 
-      <div class="flex items-center justify-center">
-        <h1 class="font-mono font-extrabold text-2xl text-blue-400">NASOOR</h1>
+      <!-- Floating Total Owed -->
+      <div class="fixed top-4 right-4 bg-gray-900 text-white p-4 rounded-lg shadow-xl w-60 text-center 
+          animate-pulse transition-transform duration-300 ease-in-out">
+        <h2 class="text-lg font-semibold">Total Owed</h2>
+        <p class="text-2xl font-bold mt-2">{{ calculateTotalOwed() }}</p>
       </div>
-      <div class="bg-blue-400 p-4 rounded-lg shadow-md w-64 mx-auto">
-        <label class="block text-sm font-mono font-medium text-black mb-1">Hourly Rate</label>
-        <input type="number" v-model="hourlyRate" min="0"
-          class="w-full border border-black rounded-md p-2 text-center focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-500" />
-      </div>
+    </div>
 
-      <table class="text-white">
+
+
+    <div class="flex justify-center">
+      <table
+        class="w-[90%] md:w-3/4 lg:w-2/3 border-collapse bg-red-900 text-white shadow-lg rounded-lg overflow-hidden">
         <thead>
-          <tr>
-            <th>Name</th>
-            <th>Arrival Time</th>
-            <th>Leaving Time</th>
-            <th>Amount Owed</th>
-            <th>Actions</th>
+          <tr class="bg-black text-white">
+            <th class="py-3 px-4 text-left border-b border-red-900">Name</th>
+            <th class="py-3 px-4 text-left border-b border-red-900">Arrival Time</th>
+            <th class="py-3 px-4 text-left border-b border-red-900">Leaving Time</th>
+            <th class="py-3 px-4 text-left border-b border-red-900">Amount Owed</th>
+            <th class="py-3 px-4 text-left border-b border-red-900">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(user, index) in users" :key="index">
-            <td>
-              <input type="text" v-model="user.name" placeholder="Enter name" />
+          <tr v-for="(user, index) in users" :key="index"
+            class="odd:bg-red-900 even:bg-red-800 hover:bg-red-700 transition duration-200">
+            <td class="py-3 px-4 border-b border-red-700">
+              <input type="text" v-model="user.name"
+                class="bg-transparent border border-black rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-red-400" />
             </td>
-            <td>
-              <input type="time" v-model="user.arrival" @input="calculateAmount(user)" />
+            <td class="py-3 px-4 border-b border-red-700">
+              <input type="time" v-model="user.arrival" @input="calculateAmount(user)"
+                class="bg-transparent border border-black rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-red-400" />
+              <button @click="setCurrentTime(user, 'arrival')"
+                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded-full transition duration-300 text-xs">
+                🕒
+              </button>
             </td>
-            <td>
-              <input type="time" v-model="user.leaving" @input="calculateAmount(user)" />
+            <td class="py-3 px-4 border-b border-red-700">
+              <input type="time" v-model="user.leaving" @input="calculateAmount(user)"
+                class="bg-transparent border border-black rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-red-400" />
+              <button @click="setCurrentTime(user, 'leaving')"
+                class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded-full transition duration-300 text-xs">
+                🕒
+              </button>
             </td>
-            <td>{{ user.amountOwed }}</td>
-            <td>
-              <button @click="removeUser(index)">❌</button>
+            <td class="py-3 px-4 border-b border-red-700 font-semibold">
+              {{ user.amountOwed.toFixed(2) }}
+            </td>
+            <td class="py-3 px-4 border-b border-red-700 flex gap-2">
+              <button @click="removeUser(index)"
+                class="bg-red-700 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-md shadow-md transition">
+                ❌
+              </button>
+              <button @click="duplicateRow(index)"
+                class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-1 px-3 rounded-md shadow-md transition">
+                ➕
+              </button>
             </td>
           </tr>
         </tbody>
       </table>
-
-      <button class="px-4 py-2 rounded-full border-2 border-blue-400 text-blue-400 
-         hover:bg-blue-900 hover:text-white hover:border-transparent 
-         active:bg-blue-700 transition-all duration-200 ease-in-out shadow-md" @click="addUser">
-        Add User
-      </button>
-
     </div>
-  </body>
+
+    <button @click="addUser()" class="px-6 py-3 rounded-full border-1 border-white
+  bg-gradient-to-b from-red-900 to-black text-white
+  hover:from-red-300 hover:to-black hover:scale-105
+  active:scale-95 transition-all duration-500 ease-in-out shadow-md hover:shadow-2xl">
+      Add User
+    </button>
+
+    <div class="w-full flex justify-center mt-4">
+      <button @click="clearAll" class="px-4 py-2 bg-red-600 text-white rounded-lg shadow-md 
+           hover:bg-red-700 active:bg-red-800 transition-all duration-200">
+        Clear All
+      </button>
+    </div>
+
+  </div>
+  <br>
+
+  </br>
+  <!-- </body> -->
 </template>
 
 <style scoped>
