@@ -51,5 +51,6 @@ app.post("/join-room", (req, res) => {
     res.json({ message: "User added", users: rooms[roomId] });
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 0;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
