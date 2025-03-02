@@ -159,10 +159,9 @@ export default {
 
   <!-- <body ></body>class="min-h-screen bg-gradient-to-b from-red-900 to-black flex flex-col items-center justify-center"> -->
 
-  <div class="fixed top-0 left-0 w-full h-screen bg-gradient-to-b  from-red-900 to-black -z-10"></div>
+  <div class="fixed inset-0 top-0 left-0 w-full h-screen bg-gradient-to-b  from-red-900 to-black -z-10"></div>
 
-  <div class="absolute top-1/4 left-1/3 w-72 h-72 bg-black opacity-30 blur-3xl animate-moveLight"></div>
-  <div class="absolute top-1/2 left-2/3 w-96 h-96 bg-black opacity-30 blur-3xl animate-moveLight"></div>
+  <div class="absolute top-1/4 left-1/3 w-72 h-72 bg-black opacity-30 blur-3xl animate-moveLight z-[-1]"></div>
   <div class="container">
     <div class="h-120 flex items-center justify-center">
       <img src="../assets/taffi.png" class="h-100 rounded-lg cursor-pointer transition-transform duration-500"
