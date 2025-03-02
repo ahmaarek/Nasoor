@@ -4,8 +4,10 @@ require("dotenv").config();
 
 const app = express();
 app.use(express.json());
+
+const allowedOrigins = ["http://localhost:5173", "https://nasoor.vercel.app", "https://nasoor.netlify.app"]; 
 app.use(cors({
-    origin: "*",  // Allow all origins (Change this to your frontend URL for security)
+    origin: allowedOrigins, 
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type"]
 }));

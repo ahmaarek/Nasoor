@@ -8,7 +8,7 @@ export default {
       isSidebarOpen: false,
       rooms: [],
       newRoom: "",
-      API : "nasoor-5dhyhap0f-ahmaareks-projects.vercel.app"
+      API : "https://nasoor-h4h6tlkmo-ahmaareks-projects.vercel.app"
     };
   },
   methods: {
