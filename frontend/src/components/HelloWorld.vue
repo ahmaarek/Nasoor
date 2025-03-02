@@ -5,17 +5,75 @@ export default {
       hourlyRate: 100,
       users: [],
       isSpinning: false,
+      isSidebarOpen: false,
+      rooms: [],
+      newRoom: "",
+      API : "nasoor-5dhyhap0f-ahmaareks-projects.vercel.app"
     };
   },
   methods: {
-    addUser() {
-  const now = new Date();
-  const hours = now.getHours().toString().padStart(2, "0");
-  const minutes = now.getMinutes().toString().padStart(2, "0");
-  const currentTime = `${hours}:${minutes}`;
+    toggleSidebar() {
+      this.isSidebarOpen = !this.isSidebarOpen;
+    },
+    async fetchRooms() {
+      try {
+        const response = await fetch(this.API + "/rooms");
+        const data = await response.json();
+        this.rooms = data;
+      } catch (error) {
+        console.error("Error fetching rooms:", error);
+      }
+    },
+    async createRoom() {
+      if (!this.newRoom) return;
 
-  this.users.push({ name: "", arrival: currentTime, leaving: currentTime, amountOwed: 0 });
-},
+      try {
+        const response = await fetch(this.API+ "/rooms", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ roomId: this.newRoom }),
+        });
+
+        const data = await response.json();
+        if (data.error) {
+          alert(data.error);
+        } else {
+          this.rooms = data.rooms;
+          this.newRoom = "";
+        }
+      } catch (error) {
+        console.error("Error creating room:", error);
+      }
+    },
+    async joinRoom(room) {
+      const userName = prompt("Enter your name:");
+      if (!userName) return;
+
+      try {
+        const response = await fetch(this.API + "join-room", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ roomId: room, userName }),
+        });
+
+        const data = await response.json();
+        if (data.error) {
+          alert(data.error);
+        } else {
+          alert(`You joined room: ${room}`);
+        }
+      } catch (error) {
+        console.error("Error joining room:", error);
+      }
+    },
+    addUser() {
+      const now = new Date();
+      const hours = now.getHours().toString().padStart(2, "0");
+      const minutes = now.getMinutes().toString().padStart(2, "0");
+      const currentTime = `${hours}:${minutes}`;
+
+      this.users.push({ name: "", arrival: currentTime, leaving: currentTime, amountOwed: 0 });
+    },
     duplicateRow(index) {
       const userToCopy = this.users[index]; // Get the selected user
       let baseName = userToCopy.name;
@@ -152,17 +210,52 @@ export default {
     },
 
   },
+
+  mounted() {
+    this.fetchRooms();
+  },
 };
 </script>
 
 <template>
+  <!-- Sidebar Toggle Button -->
+
+
+  <!-- Sidebar -->
+  <div class="fixed left-0 top-0 h-full bg-black text-white w-64 transform transition-transform duration-300"
+    :class="{ '-translate-x-full': !isSidebarOpen }">
+    <button @click="isSidebarOpen = !isSidebarOpen" class="absolute right-[-40px] top-5 
+                 bg-red-700 hover:bg-red-600 text-white rounded-full w-8 h-8 
+                 flex items-center justify-center shadow-lg transition-all duration-300 m10-6">
+      {{ isSidebarOpen ? "✖" : "➟" }}
+    </button>
+    <div class="p-4">
+      <h2 class="text-xl font-semibold mb-4">Available Rooms</h2>
+
+      <ul>
+        <li v-for="room in rooms" :key="room" class="mb-2">
+          <button @click="joinRoom(room)" class="bg-red-950 w-full text-left px-3 py-2 rounded-lg hover:bg-gray-700">
+            {{ room }}
+          </button>
+        </li>
+      </ul>
+
+      <div class="mt-4">
+        <input v-model="newRoom" type="number" placeholder="Enter new room name"
+          class="w-full text-red-950 bg-white p-2 rounded" />
+        <button @click="createRoom" class="mt-2 bg-green-600 text-white w-full py-2 rounded-lg">
+          Create Room
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- <body ></body>class="min-h-screen bg-gradient-to-b from-red-900 to-black flex flex-col items-center justify-center"> -->
 
   <div class="fixed top-0 left-0 w-full h-screen bg-gradient-to-b  from-red-900 to-black -z-10"></div>
 
   <div class="absolute top-1/4 left-1/3 w-72 h-72 bg-black opacity-30 blur-3xl animate-moveLight"></div>
-  <div class="absolute top-1/2 left-2/3 w-96 h-96 bg-black opacity-30 blur-3xl animate-moveLight"></div>
+  <!-- <div class="absolute top-1/2 left-2/3 w-96 h-96 bg-black opacity-30 blur-3xl animate-moveLight"></div> -->
   <div class="container">
     <div class="h-120 flex items-center justify-center">
       <img src="../assets/taffi.png" class="h-100 rounded-lg cursor-pointer transition-transform duration-500"
