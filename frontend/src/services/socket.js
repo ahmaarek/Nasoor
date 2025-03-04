@@ -1,9 +1,9 @@
+// services/socket.js
 import { io } from "socket.io-client";
 
-const API_URL = ""
-const LOCAL_DEV_API = "http://localhost:3000"
-
-const socket = io(LOCAL_DEV_API);
+const API_URL = "https://nasoor-l90vwr4wz-ahmaareks-projects.vercel.app";
+const DEV_API = "localhost:3000"
+const socket = io(DEV_API);
 
 // Join a room with error handling
 export function joinRoom(roomId, userName, callback) {
@@ -45,5 +45,3 @@ export function setupDisconnectionHandler(roomId, userName) {
 export function removeDisconnectionHandler() {
   window.removeEventListener('beforeunload', () => {});
 }
-
-export default socket;
