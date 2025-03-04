@@ -1,14 +1,19 @@
 <script>
+import { joinRoom, leaveRoom, onRoomUpdate } from "../services/socket";
+
 export default {
   data() {
     return {
       hourlyRate: 100,
       users: [],
+      userName: "",
+      roomId: null,
       isSpinning: false,
       isSidebarOpen: false,
       rooms: [],
       newRoom: "",
-      API : "https://nasoor-l90vwr4wz-ahmaareks-projects.vercel.app"
+      joined: false,
+      API: "https://nasoor-l90vwr4wz-ahmaareks-projects.vercel.app"
     };
   },
   methods: {
@@ -28,7 +33,7 @@ export default {
       if (!this.newRoom) return;
 
       try {
-        const response = await fetch(this.API+ "/rooms", {
+        const response = await fetch(this.API + "/rooms", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ roomId: this.newRoom }),
@@ -45,26 +50,23 @@ export default {
         console.error("Error creating room:", error);
       }
     },
-    async joinRoom(room) {
-      const userName = prompt("Enter your name:");
-      if (!userName) return;
-
-      try {
-        const response = await fetch(this.API + "join-room", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ roomId: room, userName }),
-        });
-
-        const data = await response.json();
-        if (data.error) {
-          alert(data.error);
-        } else {
-          alert(`You joined room: ${room}`);
-        }
-      } catch (error) {
-        console.error("Error joining room:", error);
+    async handleJoinRoom(roomId) {
+      if (!roomId || !this.userName) {
+        alert("Please enter both a Room ID and a Name!");
+        return;
       }
+      joinRoom(this.roomId, this.userName, (finalName) => {
+        this.userName = finalName; // Store the final username assigned by backend
+        console.log("final name : ", finalName);
+        this.joined = true;
+      });
+      this.roomId = roomId;
+      this.joined = true;
+    },
+    handleLeaveRoom() {
+      leaveRoom(this.roomId, this.userName);
+      this.joined = false;
+      this.users = []; // Clear user list
     },
     addUser() {
       const now = new Date();
@@ -213,13 +215,14 @@ export default {
 
   mounted() {
     this.fetchRooms();
+    onRoomUpdate((users) => {
+      this.users = users;
+    });
   },
 };
 </script>
 
 <template>
-  <!-- Sidebar Toggle Button -->
-
 
   <!-- Sidebar -->
   <div class="fixed left-0 top-0 h-full bg-black text-white w-64 transform transition-transform duration-300"
@@ -229,25 +232,56 @@ export default {
                  flex items-center justify-center shadow-lg transition-all duration-300 m10-6">
       {{ isSidebarOpen ? "✖" : "➟" }}
     </button>
-    <div class="p-4">
+    <div class="p-4" v-if="!joined">
+      <input v-model="userName" placeholder="Enter Your Name" />
+      <!-- <input v-model="roomId" type="number" placeholder="Enter Room number" /> -->
       <h2 class="text-xl font-semibold mb-4">Available Rooms</h2>
 
       <ul>
         <li v-for="room in rooms" :key="room" class="mb-2">
-          <button @click="joinRoom(room)" class="bg-red-950 w-full text-left px-3 py-2 rounded-lg hover:bg-gray-700">
-            {{ room }}
+          <button @click="handleJoinRoom(room)"
+            class="bg-red-950 w-full text-left px-3 py-2 rounded-lg hover:bg-gray-700">
+            Room {{ room }}
           </button>
         </li>
       </ul>
 
       <div class="mt-4">
-        <input v-model="newRoom" type="number" placeholder="Enter new room name"
+        <input v-model="newRoom" type="number" placeholder="Enter new room number"
           class="w-full text-red-950 bg-white p-2 rounded" />
         <button @click="createRoom" class="mt-2 bg-green-600 text-white w-full py-2 rounded-lg">
           Create Room
         </button>
       </div>
     </div>
+    <div v-else class="w-64 h-full bg-gray-900 text-white p-4 flex flex-col">
+      <!-- Room Header -->
+      <div class="mb-4">
+        <h2 class="text-lg font-semibold text-gray-200">Room #{{ roomId }}</h2>
+        <p class="text-sm text-gray-400 mt-1">You are: <span class="font-bold text-yellow-300">{{ userName }}</span></p>
+      </div>
+
+      <!-- User List -->
+      <div class="flex-1 overflow-y-auto">
+        <h3 class="text-gray-400 font-medium mb-3 text-sm">Users in Room</h3>
+        <ul>
+          <li v-for="user in users" :key="user.name"
+            class="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-gray-800">
+            <div class="w-8 h-8 bg-blue-500 text-white flex items-center justify-center font-bold rounded-full">
+              {{ user.name.charAt(0) }}
+            </div>
+            <span class="text-gray-300 text-sm">{{ user.name }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Leave Room Button -->
+      <button class="mt-4 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition"
+        @click="handleLeaveRoom">
+        🚪 Leave Room
+      </button>
+    </div>
+
   </div>
 
   <!-- <body ></body>class="min-h-screen bg-gradient-to-b from-red-900 to-black flex flex-col items-center justify-center"> -->
@@ -285,7 +319,7 @@ export default {
 
 
 
-    <div class="flex justify-center">
+    <div class="flex justify-center" v-if="!joined">
       <table
         class="w-[90%] md:w-3/4 lg:w-2/3 border-collapse bg-red-900 text-white shadow-lg rounded-lg overflow-hidden">
         <thead>
