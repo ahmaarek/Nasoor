@@ -373,10 +373,10 @@ export default {
     </div>
   </div>
 
-  <div class="fixed top-0 left-0 w-full h-screen bg-gradient-to-b from-red-900 to-black -z-10"></div>
 
-  <div class="absolute top-1/4 left-1/3 w-72 h-72 bg-black opacity-30 blur-3xl animate-moveLight"></div>
+  <div class="fixed inset-0 top-0 left-0 w-full min-h-screen bg-gradient-to-b  from-red-900 to-black -z-10"></div>
 
+  <div class="absolute top-1/4 left-1/3 w-72 h-72 bg-black opacity-30 blur-3xl animate-moveLight z-[-1]"></div>
   <div class="container">
     <div class="h-120 flex items-center justify-center">
       <img src="../assets/taffi.png" class="h-100 rounded-lg cursor-pointer transition-transform duration-500"
@@ -410,9 +410,12 @@ export default {
       </div>
     </div>
 
-    <div class="flex justify-center">
+
+
+
+    <div class="overflow-x-auto w-full justify-centerr">
       <table
-        class="w-[90%] md:w-3/4 lg:w-2/3 border-collapse bg-red-900 text-white shadow-lg rounded-lg overflow-hidden">
+        class="w-[90%] md:w-3/4 lg:w-2/3 border-collapse bg-red-900 text-white shadow-lg rounded-2xl overflow-hidden">
         <thead>
           <tr class="bg-black text-white">
             <th class="py-3 px-4 text-left border-b border-red-900">Name</th>
