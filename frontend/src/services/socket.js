@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 
 const API_URL = "https://nasoor-l90vwr4wz-ahmaareks-projects.vercel.app";
 const DEV_API = "localhost:3000"
-const socket = io(DEV_API);
+const socket = io(API_URL);
 
 // Join a room with error handling
 export function joinRoom(roomId, userName, callback) {
