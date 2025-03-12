@@ -8,7 +8,8 @@ const pusher = new Pusher('2010b2803d06844ca956', {
 });
 
 // API URL
-const API = "http://localhost:3000"; // Change to your production URL when deploying
+const API = "https://nasoor-git-pusher-integration-ahmaareks-projects.vercel.app";
+const DEV_API = "http://localhost:3000"; // Change to your production URL when deploying
 
 // Listeners objects to track subscriptions
 let roomUpdateListeners = [];
