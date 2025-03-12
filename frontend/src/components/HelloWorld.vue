@@ -1,5 +1,18 @@
 <script>
-import { joinRoom, leaveRoom, onRoomUpdate, updateUserTime, updateHourlyRate, setupDisconnectionHandler, removeDisconnectionHandler } from "../services/socket";
+// Update this import to use the new pusher service
+import { 
+  joinRoom, 
+  leaveRoom, 
+  onRoomUpdate, 
+  offRoomUpdate,
+  updateUserTime, 
+  updateHourlyRate, 
+  setupDisconnectionHandler, 
+  removeDisconnectionHandler,
+  fetchRooms,
+  createRoom,
+  listenForRoomsUpdates
+} from "../services/pusherService";
 
 export default {
   data() {
@@ -13,7 +26,8 @@ export default {
       rooms: [],
       newRoom: "",
       joined: false,
-      API: "https://nasoor-l90vwr4wz-ahmaareks-projects.vercel.app"
+      // API: "https://nasoor-l90vwr4wz-ahmaareks-projects.vercel.app"
+      API: "http://localhost:3000"
     };
   },
   methods: {
@@ -22,9 +36,8 @@ export default {
     },
     async fetchRooms() {
       try {
-        const response = await fetch(this.API + "/rooms");
-        const data = await response.json();
-        this.rooms = data;
+        const rooms = await fetchRooms();
+        this.rooms = rooms;
       } catch (error) {
         console.error("Error fetching rooms:", error);
       }
@@ -33,45 +46,47 @@ export default {
       if (!this.newRoom) return;
 
       try {
-        const response = await fetch(this.API + "/rooms", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ roomId: this.newRoom }),
-        });
-
-        const data = await response.json();
-        if (data.error) {
-          alert(data.error);
+        const response = await createRoom(this.newRoom);
+        
+        if (response.error) {
+          alert(response.error);
         } else {
-          this.rooms = data.rooms || [];
+          this.rooms = response.rooms || [];
           this.newRoom = "";
         }
       } catch (error) {
         console.error("Error creating room:", error);
       }
     },
-    handleJoinRoom(roomId) {
+    async handleJoinRoom(roomId) {
       if (!roomId || !this.userName) {
         alert("Please enter both a Room ID and a Name!");
         return;
       }
 
-      joinRoom(roomId, this.userName, (finalName) => {
+      const response = await joinRoom(roomId, this.userName, (finalName) => {
         this.userName = finalName; // Store the final username assigned by backend
+      });
+      
+      if (response) {
         this.roomId = roomId;
         this.joined = true;
+        this.users = response.users;
 
         // Setup disconnect handler
-        setupDisconnectionHandler(roomId, finalName);
-      });
+        setupDisconnectionHandler(roomId, this.userName);
+      }
     },
-    handleLeaveRoom() {
-      leaveRoom(this.roomId, this.userName);
+    async handleLeaveRoom() {
+      await leaveRoom(this.roomId, this.userName);
       this.joined = false;
       this.users = [];
 
       // Remove disconnect handler
       removeDisconnectionHandler();
+      
+      // Remove room update listener
+      offRoomUpdate(this.handleRoomUpdate);
     },
     addUser() {
       if (!this.joined) {
@@ -143,22 +158,16 @@ export default {
       let totalOwed = (totalBlocks * this.hourlyRate) / 4; // Since 1 hour = 4 blocks
       return totalOwed.toFixed(2);
     },
-    updateUserTime(roomId, userName, arrival, leaving) {
+    async updateUserTimeApi(roomId, userName, arrival, leaving) {
       // Only allow updating own time in room mode
       if (!this.joined || userName !== this.userName) return;
 
       console.log(`Attempting to update time for ${userName} in room ${roomId}`);
-
-      // Import the updateUserTime function from your socket service
-      import("../services/socket").then(({ updateUserTime }) => {
-        updateUserTime(roomId, userName, arrival, leaving);
-      }).catch(error => {
-        console.error('Failed to import updateUserTime:', error);
-      });
+      await updateUserTime(roomId, userName, arrival, leaving);
     },
 
     // Modify setCurrentTime to use the new updateUserTime method
-    setCurrentTime(user, field) {
+    async setCurrentTime(user, field) {
       const now = new Date();
       const hours = now.getHours().toString().padStart(2, "0");
       const minutes = now.getMinutes().toString().padStart(2, "0");
@@ -168,7 +177,7 @@ export default {
 
       // If in a room and this is the current user, broadcast the change
       if (this.joined && user.name === this.userName) {
-        this.updateUserTime(
+        await this.updateUserTimeApi(
           this.roomId,
           this.userName,
           user.arrival,
@@ -262,24 +271,34 @@ export default {
 
       this.users = []; // Remove all users
     },
-    updateHourlyRateAndBroadcast() {
+    async updateHourlyRateAndBroadcast() {
       // If in a room, broadcast the hourly rate change
       if (this.joined) {
-        updateHourlyRate(this.roomId, this.hourlyRate);
+        await updateHourlyRate(this.roomId, this.hourlyRate);
       } else {
         this.calculateAmount();
       }
+    },
+    // Handle room updates coming from Pusher
+    handleRoomUpdate(updatedUsers) {
+      this.users = updatedUsers;
+    },
+    // Handle rooms list updates from Pusher
+    handleRoomsUpdate(updatedRooms) {
+      this.rooms = updatedRooms;
     }
   },
   mounted() {
+    // Initial room fetch
     this.fetchRooms();
+    
+    // Listen for rooms updates
+    listenForRoomsUpdates(this.handleRoomsUpdate);
+    
+    // Set up event listeners for room updates
+    onRoomUpdate(this.handleRoomUpdate);
 
-    // Set up socket event listeners
-    onRoomUpdate((updatedUsers) => {
-      this.users = updatedUsers;
-    });
-
-    // Refresh room list periodically
+    // Refresh room list periodically as a fallback
     this.roomsInterval = setInterval(() => {
       if (!this.joined) {
         this.fetchRooms();
@@ -294,6 +313,9 @@ export default {
       leaveRoom(this.roomId, this.userName);
       removeDisconnectionHandler();
     }
+    
+    // Remove listeners
+    offRoomUpdate(this.handleRoomUpdate);
   },
   watch: {
     hourlyRate() {
@@ -312,6 +334,7 @@ export default {
 </script>
 
 <template>
+  <!-- The template section remains unchanged -->
   <!-- Sidebar -->
   <div class="fixed left-0 top-0 h-full bg-black text-white w-64 transform transition-transform duration-300"
     :class="{ '-translate-x-full': !isSidebarOpen }">
@@ -433,7 +456,7 @@ export default {
             </td>
             <td class="py-3 px-4 border-b border-red-700">
               <input type="time" v-model="user.arrival"
-                @input="joined ? (user.name === userName ? updateUserTime(roomId, userName, user.arrival, user.leaving) : null) : calculateAmount(user)"
+                @input="joined ? (user.name === userName ? updateUserTimeApi(roomId, userName, user.arrival, user.leaving) : null) : calculateAmount(user)"
                 :disabled="joined && user.name !== userName" class="bg-transparent border border-black rounded-md px-2 py-1 
                             focus:outline-none focus:ring-2 focus:ring-red-400
                             disabled:opacity-70" />
@@ -445,7 +468,7 @@ export default {
             </td>
             <td class="py-3 px-4 border-b border-red-700">
               <input type="time" v-model="user.leaving"
-                @input="joined ? (user.name === userName ? updateUserTime(roomId, userName, user.arrival, user.leaving) : null) : calculateAmount(user)"
+                @input="joined ? (user.name === userName ? updateUserTimeApi(roomId, userName, user.arrival, user.leaving) : null) : calculateAmount(user)"
                 :disabled="joined && user.name !== userName" class="bg-transparent border border-black rounded-md px-2 py-1 
                             focus:outline-none focus:ring-2 focus:ring-red-400
                             disabled:opacity-70" />
