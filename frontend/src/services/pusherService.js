@@ -2,19 +2,23 @@
 import axios from 'axios';
 import Pusher from 'pusher-js';
 
-// Initialize Pusher
-const pusher = new Pusher('2010b2803d06844ca956', {
-  cluster: 'eu'
-});
+// Environment variables from .env file
+const PUSHER_KEY = import.meta.env.VITE_PUSHER_KEY || process.env.VUE_APP_PUSHER_KEY;
+const PUSHER_CLUSTER = import.meta.env.VITE_PUSHER_CLUSTER || process.env.VUE_APP_PUSHER_CLUSTER || 'eu';
 
-// API URL
-const API = "https://nasoor-git-pusher-integration-ahmaareks-projects.vercel.app";
-const DEV_API = "http://localhost:3000"; // Change to your production URL when deploying
+// API URL from environment (with fallback)
+const API_URL = import.meta.env.VITE_API_URL || process.env.VUE_APP_API_URL || "http://localhost:3000";
+
+// Initialize Pusher
+const pusher = new Pusher(PUSHER_KEY, {
+  cluster: PUSHER_CLUSTER
+});
 
 // Listeners objects to track subscriptions
 let roomUpdateListeners = [];
 let roomChannel = null;
 let roomsChannel = null;
+
 
 // Subscribe to the rooms channel for available rooms updates
 export function listenForRoomsUpdates(callback) {
@@ -29,7 +33,7 @@ export function listenForRoomsUpdates(callback) {
 // Join a room
 export async function joinRoom(roomId, userName, callback) {
   try {
-    const response = await axios.post(`${API}/rooms/${roomId}/join`, { userName });
+    const response = await axios.post(`${API_URL}/rooms/${roomId}/join`, { userName });
     
     // Subscribe to room updates
     if (roomChannel) {
@@ -37,8 +41,11 @@ export async function joinRoom(roomId, userName, callback) {
     }
     
     roomChannel = pusher.subscribe(`room-${roomId}-channel`);
+    console.log(`Subscribed to channel: room-${roomId}-channel`);
+
     roomChannel.bind('room-update', data => {
       // Notify all listeners
+      console.log(`Received room-update event with data:`, data);
       roomUpdateListeners.forEach(listener => listener(data.users));
     });
     
@@ -51,12 +58,11 @@ export async function joinRoom(roomId, userName, callback) {
   }
 }
 
-// Leave a room
+// Other functions remain the same
 export async function leaveRoom(roomId, userName) {
   try {
-    await axios.delete(`${API}/rooms/${roomId}/users/${userName}`);
+    await axios.delete(`${API_URL}/rooms/${roomId}/users/${userName}`);
     
-    // Unsubscribe from the room channel
     if (roomChannel) {
       roomChannel.unsubscribe();
       roomChannel = null;
@@ -69,22 +75,19 @@ export async function leaveRoom(roomId, userName) {
   }
 }
 
-// Register for room updates
 export function onRoomUpdate(callback) {
   if (callback && !roomUpdateListeners.includes(callback)) {
     roomUpdateListeners.push(callback);
   }
 }
 
-// Remove room update listener
 export function offRoomUpdate(callback) {
   roomUpdateListeners = roomUpdateListeners.filter(listener => listener !== callback);
 }
 
-// Update user time
 export async function updateUserTime(roomId, userName, arrival, leaving) {
   try {
-    await axios.put(`${API}/rooms/${roomId}/users/${userName}`, {
+    await axios.put(`${API_URL}/rooms/${roomId}/users/${userName}`, {
       arrival,
       leaving
     });
@@ -95,10 +98,9 @@ export async function updateUserTime(roomId, userName, arrival, leaving) {
   }
 }
 
-// Update hourly rate
 export async function updateHourlyRate(roomId, rate) {
   try {
-    await axios.put(`${API}/rooms/${roomId}/rate`, { rate });
+    await axios.put(`${API_URL}/rooms/${roomId}/rate`, { rate });
     return true;
   } catch (error) {
     console.error("Error updating hourly rate:", error);
@@ -106,10 +108,9 @@ export async function updateHourlyRate(roomId, rate) {
   }
 }
 
-// Fetch available rooms
 export async function fetchRooms() {
   try {
-    const response = await axios.get(`${API}/rooms`);
+    const response = await axios.get(`${API_URL}/rooms`);
     return response.data;
   } catch (error) {
     console.error("Error fetching rooms:", error);
@@ -117,10 +118,9 @@ export async function fetchRooms() {
   }
 }
 
-// Create a new room
 export async function createRoom(roomId) {
   try {
-    const response = await axios.post(`${API}/rooms`, { roomId });
+    const response = await axios.post(`${API_URL}/rooms`, { roomId });
     return response.data;
   } catch (error) {
     console.error("Error creating room:", error);
@@ -128,17 +128,14 @@ export async function createRoom(roomId) {
   }
 }
 
-// Setup disconnect handler for browser close
 export function setupDisconnectionHandler(roomId, userName) {
   window.addEventListener('beforeunload', () => {
-    // Make a synchronous request to leave the room
     const xhr = new XMLHttpRequest();
-    xhr.open('DELETE', `${API}/rooms/${roomId}/users/${userName}`, false);
+    xhr.open('DELETE', `${API_URL}/rooms/${roomId}/users/${userName}`, false);
     xhr.send();
   });
 }
 
-// Remove disconnect handler
 export function removeDisconnectionHandler() {
   window.removeEventListener('beforeunload', () => {});
 }

@@ -14,6 +14,11 @@ const pusher = new Pusher({
   useTLS: true
 });
 
+console.log('PUSHER_APP_ID:', process.env.PUSHER_APP_ID ? 'SET' : 'NOT SET');
+console.log('PUSHER_KEY:', process.env.PUSHER_KEY ? 'SET' : 'NOT SET');
+console.log('PUSHER_SECRET:', process.env.PUSHER_SECRET ? 'SET' : 'NOT SET');
+console.log('PUSHER_CLUSTER:', process.env.PUSHER_CLUSTER || 'eu');
+
 app.use(cors());
 app.use(express.json());
 
@@ -120,6 +125,7 @@ app.put("/rooms/:roomId/users/:userName", (req, res) => {
   pusher.trigger(`room-${roomId}-channel`, "room-update", {
     users: rooms[roomId].users
   });
+  console.log(`After calculation, users:`, JSON.stringify(rooms[roomId].users));
   
   res.json({ success: true, users: rooms[roomId].users });
 });
