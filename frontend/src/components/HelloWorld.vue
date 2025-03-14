@@ -26,7 +26,6 @@ export default {
       rooms: [],
       newRoom: "",
       joined: false,
-      API: "https://nasoor-git-pusher-integration-ahmaareks-projects.vercel.app"
       // API: "http://localhost:3000"
     };
   },

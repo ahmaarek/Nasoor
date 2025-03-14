@@ -7,9 +7,9 @@ const app = express();
 
 // Initialize Pusher
 const pusher = new Pusher({
-  appId: process.env.PUSHER_APP_ID || "1952491",
-  key: process.env.PUSHER_KEY || "2010b2803d06844ca956",
-  secret: process.env.PUSHER_SECRET || "5fd4cc3559c7742b95b7",
+  appId: process.env.PUSHER_APP_ID,
+  key: process.env.PUSHER_KEY,
+  secret: process.env.PUSHER_SECRET,
   cluster: process.env.PUSHER_CLUSTER || "eu",
   useTLS: true
 });
