@@ -1,5 +1,4 @@
 <script>
-// Update this import to use the new pusher service
 import { 
   joinRoom, 
   leaveRoom, 
@@ -26,7 +25,6 @@ export default {
       rooms: [],
       newRoom: "",
       joined: false,
-      // API: "http://localhost:3000"
     };
   },
   methods: {
@@ -64,7 +62,7 @@ export default {
       }
 
       const response = await joinRoom(roomId, this.userName, (finalName) => {
-        this.userName = finalName; // Store the final username assigned by backend
+        this.userName = finalName;
       });
       
       if (response) {
@@ -72,7 +70,6 @@ export default {
         this.joined = true;
         this.users = response.users;
 
-        // Setup disconnect handler
         setupDisconnectionHandler(roomId, this.userName);
       }
     },
@@ -81,10 +78,8 @@ export default {
       this.joined = false;
       this.users = [];
 
-      // Remove disconnect handler
       removeDisconnectionHandler();
       
-      // Remove room update listener
       offRoomUpdate(this.handleRoomUpdate);
     },
     addUser() {
@@ -105,28 +100,25 @@ export default {
         return;
       }
 
-      const userToCopy = this.users[index]; // Get the selected user
+      const userToCopy = this.users[index];
       let baseName = userToCopy.name;
       let newName = baseName;
       let copyCount = 1;
 
-      // Ensure the new name is unique by appending a number if needed
       while (this.users.some(user => user.name === newName)) {
         newName = `${baseName} ${copyCount}`;
         copyCount++;
       }
 
       const newUser = {
-        name: newName, // Use the unique name
+        name: newName,
         arrival: userToCopy.arrival,
         leaving: userToCopy.leaving,
         amountOwed: 0,
       };
 
-      // Insert the new user into the list
       this.users.splice(index + 1, 0, newUser);
 
-      // Recalculate everything
       this.calculateAmount();
     },
     calculateTotalOwed() {
@@ -140,9 +132,8 @@ export default {
         let arrival = this.timeToMinutes(user.arrival);
         let leaving = this.timeToMinutes(user.leaving);
 
-        if (leaving < arrival) leaving += totalMinutes; // Handle past-midnight stays
+        if (leaving < arrival) leaving += totalMinutes;
 
-        // Round to the nearest 15 minutes
         arrival = Math.round(arrival / 15) * 15;
         leaving = Math.round(leaving / 15) * 15;
 
@@ -150,22 +141,18 @@ export default {
         latestLeaving = Math.max(latestLeaving, leaving);
       });
 
-      // Calculate the total minutes used
       let totalUsedMinutes = latestLeaving - earliestArrival;
-      let totalBlocks = totalUsedMinutes / 15; // Number of 15-minute blocks
+      let totalBlocks = totalUsedMinutes / 15;
 
-      let totalOwed = (totalBlocks * this.hourlyRate) / 4; // Since 1 hour = 4 blocks
+      let totalOwed = (totalBlocks * this.hourlyRate) / 4;
       return totalOwed.toFixed(2);
     },
     async updateUserTimeApi(roomId, userName, arrival, leaving) {
-      // Only allow updating own time in room mode
       if (!this.joined || userName !== this.userName) return;
 
       console.log(`Attempting to update time for ${userName} in room ${roomId}`);
       await updateUserTime(roomId, userName, arrival, leaving);
     },
-
-    // Modify setCurrentTime to use the new updateUserTime method
     async setCurrentTime(user, field) {
       const now = new Date();
       const hours = now.getHours().toString().padStart(2, "0");
@@ -174,7 +161,6 @@ export default {
 
       user[field] = timeString;
 
-      // If in a room and this is the current user, broadcast the change
       if (this.joined && user.name === this.userName) {
         await this.updateUserTimeApi(
           this.roomId,
@@ -201,38 +187,34 @@ export default {
     },
     calculateAmount() {
       if (this.joined) {
-        return; // Let the server calculate this
+        return;
       }
 
-      const totalMinutes = 24 * 60; // Total minutes in a day
-      let timeBlocks = {}; // Tracks how many people are present per time block
-      let userAmounts = {}; // Stores each user's total owed amount
+      const totalMinutes = 24 * 60;
+      let timeBlocks = {};
+      let userAmounts = {};
 
-      // First loop: Track presence in each time block
       this.users.forEach((user) => {
         let arrival = this.timeToMinutes(user.arrival);
         let leaving = this.timeToMinutes(user.leaving);
 
         if (leaving < arrival) {
-          leaving += totalMinutes; // Handle past-midnight stays
+          leaving += totalMinutes;
         }
 
-        // Round to the nearest 15-minute block
         arrival = Math.round(arrival / 15) * 15;
         leaving = Math.round(leaving / 15) * 15;
 
         for (let t = arrival; t < leaving; t += 15) {
           if (!timeBlocks[t]) timeBlocks[t] = 0;
-          timeBlocks[t]++; // Count ALL users correctly
+          timeBlocks[t]++;
         }
 
-        userAmounts[user.name] = 0; // Initialize user's owed amount
+        userAmounts[user.name] = 0;
       });
 
-      // Calculate cost per 15-minute block
-      const costPerBlock = (this.hourlyRate || 0) / 4;  // Since 1 hour = 4 x 15-minute blocks
+      const costPerBlock = (this.hourlyRate || 0) / 4;
 
-      // Second loop: Distribute cost fairly
       Object.keys(timeBlocks).forEach((block) => {
         let numPeople = timeBlocks[block];
 
@@ -246,12 +228,11 @@ export default {
           leaving = Math.round(leaving / 15) * 15;
 
           if (block >= arrival && block < leaving) {
-            userAmounts[user.name] += costPerBlock / numPeople; // Divide cost correctly
+            userAmounts[user.name] += costPerBlock / numPeople;
           }
         });
       });
 
-      // Assign amounts owed back to users
       this.users.forEach((user) => {
         user.amountOwed = userAmounts[user.name];
       });
@@ -268,52 +249,43 @@ export default {
         return;
       }
 
-      this.users = []; // Remove all users
+      this.users = [];
     },
     async updateHourlyRateAndBroadcast() {
-      // If in a room, broadcast the hourly rate change
       if (this.joined) {
         await updateHourlyRate(this.roomId, this.hourlyRate);
       } else {
         this.calculateAmount();
       }
     },
-    // Handle room updates coming from Pusher
     handleRoomUpdate(updatedUsers) {
       this.users = updatedUsers;
     },
-    // Handle rooms list updates from Pusher
     handleRoomsUpdate(updatedRooms) {
       this.rooms = updatedRooms;
     }
   },
   mounted() {
-    // Initial room fetch
     this.fetchRooms();
     
-    // Listen for rooms updates
     listenForRoomsUpdates(this.handleRoomsUpdate);
     
-    // Set up event listeners for room updates
     onRoomUpdate(this.handleRoomUpdate);
 
-    // Refresh room list periodically as a fallback
     this.roomsInterval = setInterval(() => {
       if (!this.joined) {
         this.fetchRooms();
       }
-    }, 10000); // every 10 seconds
+    }, 10000);
   },
   beforeUnmount() {
     clearInterval(this.roomsInterval);
 
-    // Cleanup
     if (this.joined) {
       leaveRoom(this.roomId, this.userName);
       removeDisconnectionHandler();
     }
     
-    // Remove listeners
     offRoomUpdate(this.handleRoomUpdate);
   },
   watch: {
@@ -321,7 +293,6 @@ export default {
       if (!this.joined) {
         this.calculateAmount();
       } else {
-        // Debounce the broadcast to avoid too many updates
         clearTimeout(this.hourlyRateTimeout);
         this.hourlyRateTimeout = setTimeout(() => {
           this.updateHourlyRateAndBroadcast();
@@ -333,9 +304,7 @@ export default {
 </script>
 
 <template>
-  <!-- The template section remains unchanged -->
-  <!-- Sidebar -->
-  <div class="fixed left-0 top-0 h-full bg-black text-white w-64 transform transition-transform duration-300"
+  <div class="fixed left-0 top-0 h-full bg-black text-white w-64 transform transition-transform duration-300 z-30"
     :class="{ '-translate-x-full': !isSidebarOpen }">
     <button @click="isSidebarOpen = !isSidebarOpen" class="absolute right-[-40px] top-5 
                  bg-red-700 hover:bg-red-600 text-white rounded-full w-8 h-8 
@@ -366,13 +335,11 @@ export default {
       </div>
     </div>
     <div v-else class="w-64 h-full bg-gray-900 text-white p-4 flex flex-col">
-      <!-- Room Header -->
       <div class="mb-4">
         <h2 class="text-lg font-semibold text-gray-200">Room #{{ roomId }}</h2>
         <p class="text-sm text-gray-400 mt-1">You are: <span class="font-bold text-yellow-300">{{ userName }}</span></p>
       </div>
 
-      <!-- User List -->
       <div class="flex-1 overflow-y-auto">
         <h3 class="text-gray-400 font-medium mb-3 text-sm">Users in Room</h3>
         <ul>
@@ -387,7 +354,6 @@ export default {
         </ul>
       </div>
 
-      <!-- Leave Room Button -->
       <button class="mt-4 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition"
         @click="handleLeaveRoom">
         🚪 Leave Room
@@ -396,26 +362,23 @@ export default {
   </div>
 
   <div class="fixed top-0 left-0 w-full h-screen bg-gradient-to-b from-red-900 to-black -z-10"></div>
-
   <div class="absolute top-1/4 left-1/3 w-72 h-72 bg-black opacity-30 blur-3xl animate-moveLight"></div>
 
-  <div class="container">
-    <div class="h-120 flex items-center justify-center">
-      <img src="../assets/taffi.png" class="h-100 rounded-lg cursor-pointer transition-transform duration-500"
+  <div class="container mx-auto px-4 pb-16 min-h-screen">
+    <div class="flex items-center justify-center mt-4 mb-4">
+      <img src="../assets/taffi.png" class="h-20 sm:h-32 md:h-40 rounded-lg cursor-pointer transition-transform duration-500"
         :class="{ 'rotate-360 ': isSpinning }" @click="spinImage">
     </div>
 
-    <div class="flex items-center justify-center">
-      <h1 class="font-mono font-extrabold text-2xl text-white">NASOOR</h1>
+    <div class="flex items-center justify-center mb-4">
+      <h1 class="font-mono font-extrabold text-xl sm:text-2xl text-white">NASOOR</h1>
     </div>
 
-    <!-- Room Status Banner -->
     <div v-if="joined" class="bg-green-800 text-white p-2 rounded-lg mb-4 text-center">
       <p>You're connected to Room #{{ roomId }} as {{ userName }}</p>
     </div>
 
-    <div class="flex flex-col items-center gap-4 relative">
-      <!-- Hourly Rate Input -->
+    <div class="flex flex-col items-center gap-4 relative mb-4">
       <div class="bg-red-900 p-4 rounded-lg shadow-md w-64 text-center">
         <label class="block text-sm font-mono font-medium text-white mb-1">
           Hourly Rate
@@ -424,74 +387,79 @@ export default {
                      focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-500" />
       </div>
 
-      <!-- Floating Total Owed -->
-      <div class="fixed top-4 right-4 bg-gray-900 text-white p-4 rounded-lg shadow-xl w-60 text-center 
-                  animate-pulse transition-transform duration-300 ease-in-out">
-        <h2 class="text-lg font-semibold">Total Owed</h2>
-        <p class="text-2xl font-bold mt-2">{{ calculateTotalOwed() }}</p>
+      <div class="fixed top-4 right-4 bg-gray-900 text-white p-3 rounded-lg shadow-xl w-auto min-w-24 text-center 
+                  animate-pulse transition-transform duration-300 ease-in-out z-20">
+        <h2 class="text-sm sm:text-lg font-semibold">Total Owed</h2>
+        <p class="text-lg sm:text-2xl font-bold mt-1">{{ calculateTotalOwed() }}</p>
       </div>
     </div>
 
-    <div class="flex justify-center">
-      <table
-        class="w-[90%] md:w-3/4 lg:w-2/3 border-collapse bg-red-900 text-white shadow-lg rounded-lg overflow-hidden">
+    <div class="overflow-x-auto rounded-lg shadow-lg mb-6">
+      <table class="w-full border-collapse bg-red-900 text-white">
         <thead>
           <tr class="bg-black text-white">
-            <th class="py-3 px-4 text-left border-b border-red-900">Name</th>
-            <th class="py-3 px-4 text-left border-b border-red-900">Arrival Time</th>
-            <th class="py-3 px-4 text-left border-b border-red-900">Leaving Time</th>
-            <th class="py-3 px-4 text-left border-b border-red-900">Amount Owed</th>
-            <th class="py-3 px-4 text-left border-b border-red-900">Actions</th>
+            <th class="py-2 px-2 sm:py-3 sm:px-4 text-left border-b border-red-900">Name</th>
+            <th class="py-2 px-2 sm:py-3 sm:px-4 text-left border-b border-red-900">Arrival</th>
+            <th class="py-2 px-2 sm:py-3 sm:px-4 text-left border-b border-red-900">Leaving</th>
+            <th class="py-2 px-2 sm:py-3 sm:px-4 text-left border-b border-red-900">Owed</th>
+            <th class="py-2 px-2 sm:py-3 sm:px-4 text-left border-b border-red-900">Action</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="(user, index) in users" :key="index"
             class="odd:bg-red-900 even:bg-red-800 hover:bg-red-700 transition duration-200"
             :class="{ 'bg-red-700': user.name === userName }">
-            <td class="py-3 px-4 border-b border-red-700">
+            <td class="py-2 px-2 sm:py-3 sm:px-4 border-b border-red-700">
               <input type="text" v-model="user.name" :disabled="joined" class="bg-transparent border border-black rounded-md px-2 py-1 
-                       focus:outline-none focus:ring-2 focus:ring-red-400
+                       focus:outline-none focus:ring-2 focus:ring-red-400 w-full
                        disabled:opacity-70" />
             </td>
-            <td class="py-3 px-4 border-b border-red-700">
-              <input type="time" v-model="user.arrival"
-                @input="joined ? (user.name === userName ? updateUserTimeApi(roomId, userName, user.arrival, user.leaving) : null) : calculateAmount(user)"
-                :disabled="joined && user.name !== userName" class="bg-transparent border border-black rounded-md px-2 py-1 
-                            focus:outline-none focus:ring-2 focus:ring-red-400
-                            disabled:opacity-70" />
-              <button @click="setCurrentTime(user, 'arrival')" :disabled="joined && user.name !== userName" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded-full 
-                            transition duration-300 text-xs
-                            disabled:bg-gray-400 disabled:cursor-not-allowed">
-                🕒
-              </button>
+            <td class="py-2 px-2 sm:py-3 sm:px-4 border-b border-red-700 whitespace-nowrap">
+              <div class="flex items-center space-x-1">
+                <input type="time" v-model="user.arrival"
+                  @input="joined ? (user.name === userName ? updateUserTimeApi(roomId, userName, user.arrival, user.leaving) : null) : calculateAmount(user)"
+                  :disabled="joined && user.name !== userName" class="bg-transparent border border-black rounded-md px-2 py-1 
+                              focus:outline-none focus:ring-2 focus:ring-red-400 w-full
+                              disabled:opacity-70" />
+                <button @click="setCurrentTime(user, 'arrival')" :disabled="joined && user.name !== userName" 
+                  class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded-full 
+                              transition duration-300 text-xs
+                              disabled:bg-gray-400 disabled:cursor-not-allowed flex-shrink-0">
+                  🕒
+                </button>
+              </div>
             </td>
-            <td class="py-3 px-4 border-b border-red-700">
-              <input type="time" v-model="user.leaving"
-                @input="joined ? (user.name === userName ? updateUserTimeApi(roomId, userName, user.arrival, user.leaving) : null) : calculateAmount(user)"
-                :disabled="joined && user.name !== userName" class="bg-transparent border border-black rounded-md px-2 py-1 
-                            focus:outline-none focus:ring-2 focus:ring-red-400
-                            disabled:opacity-70" />
-              <button @click="setCurrentTime(user, 'leaving')" :disabled="joined && user.name !== userName" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded-full 
-                            transition duration-300 text-xs
-                            disabled:bg-gray-400 disabled:cursor-not-allowed">
-                🕒
-              </button>
+            <td class="py-2 px-2 sm:py-3 sm:px-4 border-b border-red-700 whitespace-nowrap">
+              <div class="flex items-center space-x-1">
+                <input type="time" v-model="user.leaving"
+                  @input="joined ? (user.name === userName ? updateUserTimeApi(roomId, userName, user.arrival, user.leaving) : null) : calculateAmount(user)"
+                  :disabled="joined && user.name !== userName" class="bg-transparent border border-black rounded-md px-2 py-1 
+                              focus:outline-none focus:ring-2 focus:ring-red-400 w-full
+                              disabled:opacity-70" />
+                <button @click="setCurrentTime(user, 'leaving')" :disabled="joined && user.name !== userName" 
+                  class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-1 px-2 rounded-full 
+                              transition duration-300 text-xs
+                              disabled:bg-gray-400 disabled:cursor-not-allowed flex-shrink-0">
+                  🕒
+                </button>
+              </div>
             </td>
-            <td class="py-3 px-4 border-b border-red-700 font-semibold">
+            <td class="py-2 px-2 sm:py-3 sm:px-4 border-b border-red-700 font-semibold text-right">
               {{ user.amountOwed.toFixed(2) }}
             </td>
-            <td class="py-3 px-4 border-b border-red-700 flex gap-2">
-              <button @click="removeUser(index)" v-if="!joined"
-                class="bg-red-700 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-md shadow-md transition">
-                ❌
-              </button>
-              <button @click="duplicateRow(index)" v-if="!joined"
-                class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-1 px-3 rounded-md shadow-md transition">
-                ➕
-              </button>
-              <!-- For room mode, show indicators -->
-              <div v-if="joined && user.name === userName" class="bg-green-600 text-white text-xs py-1 px-2 rounded-md">
-                You
+            <td class="py-2 px-2 sm:py-3 sm:px-4 border-b border-red-700">
+              <div class="flex gap-1 justify-center">
+                <button @click="removeUser(index)" v-if="!joined"
+                  class="bg-red-700 hover:bg-red-600 text-white font-bold py-1 px-2 rounded-md shadow-md transition">
+                  ❌
+                </button>
+                <button @click="duplicateRow(index)" v-if="!joined"
+                  class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-1 px-2 rounded-md shadow-md transition">
+                  ➕
+                </button>
+                <div v-if="joined && user.name === userName" class="bg-green-600 text-white text-xs py-1 px-2 rounded-md">
+                  You
+                </div>
               </div>
             </td>
           </tr>
@@ -499,22 +467,22 @@ export default {
       </table>
     </div>
 
-    <button @click="addUser()" v-if="!joined" class="mt-4 px-6 py-3 rounded-full border-1 border-white
+    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pb-8">
+      <button v-if="!joined" @click="addUser()" 
+        class="px-6 py-3 rounded-full border border-white
               bg-gradient-to-b from-red-900 to-black text-white
               hover:from-red-300 hover:to-black hover:scale-105
-              active:scale-95 transition-all duration-500 ease-in-out shadow-md hover:shadow-2xl">
-      Add User
-    </button>
+              active:scale-95 transition-all duration-500 ease-in-out shadow-md hover:shadow-2xl w-full sm:w-auto">
+        Add User
+      </button>
 
-    <div class="w-full flex justify-center mt-4" v-if="!joined">
-      <button @click="clearAll" class="px-4 py-2 bg-red-600 text-white rounded-lg shadow-md 
-                                      hover:bg-red-700 active:bg-red-800 transition-all duration-200">
+      <button v-if="!joined" @click="clearAll" 
+        class="px-6 py-3 bg-red-600 text-white rounded-lg shadow-md 
+              hover:bg-red-700 active:bg-red-800 transition-all duration-200 w-full sm:w-auto">
         Clear All
       </button>
     </div>
-
   </div>
-  <br>
 </template>
 
 <style scoped>
@@ -524,25 +492,29 @@ export default {
   margin: auto;
 }
 
-.input-group {
-  margin-bottom: 10px;
+input[type="time"] {
+  min-width: 70px;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
+@media (max-width: 640px) {
+  input[type="time"] {
+    min-width: 60px;
+    padding: 2px 4px;
+  }
+  
+  th, td {
+    padding: 4px;
+    font-size: 0.875rem;
+  }
+  
+  .container {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
 }
 
-th,
-td {
-  border: 1px solid black;
-  padding: 8px;
-}
-
-button {
-  margin-top: 10px;
-  padding: 5px 10px;
-  cursor: pointer;
+html, body {
+  min-height: 100%;
+  background-color: black;
 }
 </style>
