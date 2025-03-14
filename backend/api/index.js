@@ -20,6 +20,27 @@ console.log('PUSHER_SECRET:', process.env.PUSHER_SECRET ? 'SET' : 'NOT SET');
 console.log('PUSHER_CLUSTER:', process.env.PUSHER_CLUSTER || 'eu');
 
 app.use(cors());
+const allowedOriginsString = process.env.ALLOWED_ORIGINS || 'http://localhost:3000';
+const allowedOrigins = allowedOriginsString.split(',').map(origin => origin.trim());
+
+console.log('CORS: Allowed origins:', allowedOrigins);
+
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      console.log('CORS: Blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 app.use(express.json());
 
 // Store rooms data
